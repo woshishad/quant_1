@@ -20,6 +20,13 @@
 ## 快速开始
 
 ```bash
+conda env create -f environment.yml
+conda activate quant-competition-sim
+```
+
+然后再运行：
+
+```bash
 python generate_data.py --output-dir data/synthetic
 python train.py --data-dir data/synthetic --artifacts-dir artifacts
 python main.py --data-dir data/synthetic --model-path artifacts/model_bundle.json --output-path submission.csv
@@ -30,4 +37,3 @@ python main.py --data-dir data/synthetic --model-path artifacts/model_bundle.jso
 - 如果安装了 `pyarrow`，会优先写入 Parquet；否则自动回退到 CSV
 - 训练时采用严格的时间顺序切分，避免未来信息泄露
 - `weight` 既参与 `target` 的加权训练，也作为辅助回归目标，方便分析关键特征
-
