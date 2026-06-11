@@ -1,0 +1,5 @@
+numpy
+pandas
+# Optional for parquet support:
+# pyarrow
+
