@@ -1,3 +1,5 @@
+"""命令行入口：生成模拟赛题数据集。"""
+
 from __future__ import annotations
 
 import argparse
@@ -19,6 +21,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    # 读取参数并调用数据生成器，输出生成文件路径供检查。
     args = parse_args()
     config = SyntheticConfig(
         seed=args.seed,
@@ -35,4 +38,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

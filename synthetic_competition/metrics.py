@@ -1,9 +1,12 @@
+"""评估指标实现：加权 R²、普通 R² 和皮尔逊相关系数。"""
+
 from __future__ import annotations
 
 import numpy as np
 
 
 def weighted_r2(y_true: np.ndarray, y_pred: np.ndarray, sample_weight: np.ndarray | None = None) -> float:
+    # 和赛题公式一致：用权重计算残差平方和，再除以加权平方和。
     y_true = np.asarray(y_true, dtype=float)
     y_pred = np.asarray(y_pred, dtype=float)
     if sample_weight is None:
@@ -18,6 +21,7 @@ def weighted_r2(y_true: np.ndarray, y_pred: np.ndarray, sample_weight: np.ndarra
 
 
 def r2_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    # 传统 R² 仅用于辅助观察，不是官方主指标。
     y_true = np.asarray(y_true, dtype=float)
     y_pred = np.asarray(y_pred, dtype=float)
     centered = y_true - y_true.mean()
@@ -28,6 +32,7 @@ def r2_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
 
 
 def pearson_corr(x: np.ndarray, y: np.ndarray) -> float:
+    # 相关系数主要用来做快速线性诊断。
     x = np.asarray(x, dtype=float)
     y = np.asarray(y, dtype=float)
     x = x - x.mean()
@@ -36,4 +41,3 @@ def pearson_corr(x: np.ndarray, y: np.ndarray) -> float:
     if denom <= 0:
         return 0.0
     return float(np.sum(x * y) / denom)
-

@@ -1,3 +1,5 @@
+"""命令行入口：加载训练好的模型包，对测试集执行推理并输出提交文件。"""
+
 from __future__ import annotations
 
 import argparse
@@ -20,6 +22,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def load_target_model(bundle: dict) -> tuple[list[str], RidgeRegressor, RidgeRegressor, FeatureInteractionBuilder, float]:
+    # 把 JSON 里的参数重新装回可预测的模型对象。
     feature_names = bundle["feature_names"]
     target_model = bundle["target_model"]
 
@@ -45,6 +48,7 @@ def load_target_model(bundle: dict) -> tuple[list[str], RidgeRegressor, RidgeReg
 
 
 def predict_from_bundle(bundle: dict, frame: pd.DataFrame) -> np.ndarray:
+    # 先算线性主项，再算交互项，最后按权重融合。
     feature_names, base, interaction, builder, base_weight = load_target_model(bundle)
     X = frame[feature_names].to_numpy(dtype=float)
     base_pred = base.predict(X)
@@ -54,6 +58,7 @@ def predict_from_bundle(bundle: dict, frame: pd.DataFrame) -> np.ndarray:
 
 
 def main() -> None:
+    # 读取测试集、完成推理并写出提交文件。
     args = parse_args()
     bundle = read_json(args.model_path)
     test_frame = read_table(args.data_dir / "test")

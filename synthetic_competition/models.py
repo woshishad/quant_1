@@ -1,3 +1,5 @@
+"""轻量建模模块：标准化、岭回归、交互特征和融合预测。"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -7,6 +9,7 @@ import numpy as np
 
 
 def weighted_mean(values: np.ndarray, sample_weight: np.ndarray | None = None) -> float:
+    # 加权均值用于带样本权重的中心化。
     values = np.asarray(values, dtype=float)
     if sample_weight is None:
         return float(values.mean())
@@ -18,6 +21,7 @@ def weighted_mean(values: np.ndarray, sample_weight: np.ndarray | None = None) -
 
 
 def weighted_std(values: np.ndarray, sample_weight: np.ndarray | None = None) -> float:
+    # 加权标准差保留着，后续可以直接扩展为更复杂的归一化策略。
     values = np.asarray(values, dtype=float)
     mean = weighted_mean(values, sample_weight=sample_weight)
     centered = values - mean
@@ -35,10 +39,12 @@ def weighted_std(values: np.ndarray, sample_weight: np.ndarray | None = None) ->
 
 @dataclass
 class Standardizer:
+    # 最轻量的标准化器，只做均值和方差缩放。
     mean_: np.ndarray | None = None
     scale_: np.ndarray | None = None
 
     def fit(self, X: np.ndarray, sample_weight: np.ndarray | None = None) -> "Standardizer":
+        # 如果提供样本权重，就用加权统计量。
         X = np.asarray(X, dtype=float)
         if sample_weight is None:
             mean = X.mean(axis=0)
@@ -70,12 +76,14 @@ class Standardizer:
 
 @dataclass
 class RidgeRegressor:
+    # 自己实现一个岭回归，避免依赖 sklearn。
     alpha: float = 1.0
     standardizer: Standardizer | None = None
     coef_: np.ndarray | None = None
     intercept_: float = 0.0
 
     def fit(self, X: np.ndarray, y: np.ndarray, sample_weight: np.ndarray | None = None) -> "RidgeRegressor":
+        # 先标准化，再解带 L2 正则的线性方程。
         X = np.asarray(X, dtype=float)
         y = np.asarray(y, dtype=float)
         self.standardizer = Standardizer().fit(X, sample_weight=sample_weight)
@@ -108,6 +116,7 @@ class RidgeRegressor:
 
 @dataclass
 class FeatureInteractionBuilder:
+    # 只在少数关键特征上构造交互项，控制维度和推理成本。
     interaction_features: tuple[int, ...]
     include_squares: bool = True
 
@@ -115,6 +124,7 @@ class FeatureInteractionBuilder:
         return self
 
     def transform(self, X: np.ndarray) -> tuple[np.ndarray, list[str]]:
+        # 返回扩展后的矩阵，同时返回每一列交互项名字，方便后续解释。
         X = np.asarray(X, dtype=float)
         features = [X]
         names: list[str] = []
@@ -132,12 +142,14 @@ class FeatureInteractionBuilder:
 
 @dataclass
 class FusionRegressor:
+    # 主模型负责线性趋势，交互模型负责补充非线性结构。
     base_model: RidgeRegressor
     interaction_model: RidgeRegressor
     interaction_builder: FeatureInteractionBuilder
     base_weight: float = 0.65
 
     def fit(self, X: np.ndarray, y: np.ndarray, sample_weight: np.ndarray | None = None) -> "FusionRegressor":
+        # 两个子模型分别拟合，然后在预测时做线性融合。
         self.base_model.fit(X, y, sample_weight=sample_weight)
         transformed, _ = self.interaction_builder.transform(X)
         self.interaction_model.fit(transformed, y, sample_weight=sample_weight)
@@ -156,6 +168,7 @@ def aggregated_feature_importance(
     interaction_names: list[str],
     interaction_coef: np.ndarray,
 ) -> list[tuple[str, float]]:
+    # 把交互项的重要性尽量折回原始特征，便于解释“哪些特征重要”。
     importance = {name: abs(float(coef)) for name, coef in zip(feature_names, base_coef)}
     for name, coef in zip(interaction_names, interaction_coef[len(feature_names) :]):
         if "^2" in name:

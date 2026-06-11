@@ -1,3 +1,5 @@
+"""生成与赛题格式一致的模拟数据，重点控制 `weight` 和 `target` 的信号结构。"""
+
 from __future__ import annotations
 
 from dataclasses import asdict
@@ -12,10 +14,12 @@ from .io import ensure_dir, write_json, write_table
 
 
 def sigmoid(x: np.ndarray) -> np.ndarray:
+    # 把线性信号压到稳定区间，避免 weight 过大或过小。
     return 1.0 / (1.0 + np.exp(-x))
 
 
 def _make_latent_state(config: SyntheticConfig, total_times: int, n_assets: int) -> dict[str, np.ndarray]:
+    # 先生成时间和资产层面的潜变量，再把它们投影到特征空间。
     rng = np.random.default_rng(config.seed)
     time_grid = np.linspace(0.0, 2.0 * np.pi, total_times, endpoint=False)
     time_trend = (
@@ -41,6 +45,7 @@ def _make_latent_state(config: SyntheticConfig, total_times: int, n_assets: int)
 
 
 def _build_feature_frame(config: SyntheticConfig, total_times: int, n_assets: int) -> pd.DataFrame:
+    # 这里是核心模拟器：少数特征驱动 weight / target，其余特征主要负责扰动和混淆。
     rng = np.random.default_rng(config.seed)
     latent = _make_latent_state(config, total_times, n_assets)
     rows: list[dict[str, Any]] = []
@@ -67,6 +72,7 @@ def _build_feature_frame(config: SyntheticConfig, total_times: int, n_assets: in
             feature_values[8] = 0.85 * feature_values[2] - 0.2 * time_trend + 0.15 * noise[8]
             feature_values[9] = 0.75 * feature_values[3] + 0.15 * asset_alpha + 0.15 * noise[9]
             for feature_id in range(10, config.n_features):
+                # 其余特征混入共同因子和噪声，避免整个数据集过于“干净”。
                 latent_mix = (
                     0.25 * time_trend
                     + 0.15 * regime
@@ -78,6 +84,7 @@ def _build_feature_frame(config: SyntheticConfig, total_times: int, n_assets: in
                 feature_values[feature_id] = latent_mix + 0.7 * noise[feature_id]
 
             weight_signal = (
+                # weight 主要由少数特征和少量交互项决定。
                 1.7 * feature_values[0]
                 - 1.25 * feature_values[1]
                 + 1.05 * feature_values[4]
@@ -89,6 +96,7 @@ def _build_feature_frame(config: SyntheticConfig, total_times: int, n_assets: in
             weight = 0.25 + 1.6 * sigmoid(weight_signal / 2.0)
 
             target_signal = (
+                # target 保留正负号和幅度含义，围绕 0 波动。
                 0.95 * feature_values[2]
                 - 0.8 * feature_values[3]
                 + 0.65 * feature_values[4]
@@ -129,6 +137,7 @@ def _build_feature_frame(config: SyntheticConfig, total_times: int, n_assets: in
 
 
 def _build_test_frame(config: SyntheticConfig, total_times: int, n_assets: int) -> pd.DataFrame:
+    # 测试集只保留推理阶段可见的字段，不暴露 target / weight / responder。
     frame = _build_feature_frame(config, total_times, n_assets)
     feature_columns = ["row_id", "time_id", "asset_id"] + [f"feature_{i}" for i in range(config.n_features)]
     frame = frame[feature_columns].copy()
@@ -137,6 +146,7 @@ def _build_test_frame(config: SyntheticConfig, total_times: int, n_assets: int) 
 
 
 def _partition_frame(frame: pd.DataFrame, time_col: str, partition_size: int) -> list[pd.DataFrame]:
+    # 按连续 time_id 切分，模拟赛题给出的分区读取方式。
     partitions: list[pd.DataFrame] = []
     for start in range(frame[time_col].min(), frame[time_col].max() + 1, partition_size):
         stop = start + partition_size
@@ -147,8 +157,10 @@ def _partition_frame(frame: pd.DataFrame, time_col: str, partition_size: int) ->
 
 
 def generate_dataset(config: SyntheticConfig, output_dir: str | Path) -> dict[str, Any]:
+    # 生成训练集、测试集、样例提交和分区文件，并写出 manifest。
     output_dir = ensure_dir(output_dir)
     train_frame = _build_feature_frame(config, config.n_train_times, config.n_assets)
+    # 让 target 更接近零均值回归任务；weight 归一化后更适合作为样本权重。
     train_frame["target"] = train_frame["target"] - train_frame["target"].mean()
     train_frame["weight"] = train_frame["weight"] / max(train_frame["weight"].mean(), 1e-12)
     test_frame = _build_test_frame(config, config.n_test_times, config.n_assets)
@@ -174,6 +186,7 @@ def generate_dataset(config: SyntheticConfig, output_dir: str | Path) -> dict[st
         path = write_table(partition, test_partitions_dir / f"test_partition_{index:03d}")
         test_partitions.append(str(path.name))
 
+    # manifest 记录当前模拟设定，后续可以直接复现实验。
     manifest = {
         "config": asdict(config),
         "train_rows": len(train_frame),

@@ -1,3 +1,5 @@
+"""特征相关性、置换重要性和特征恢复报告的分析工具。"""
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
@@ -19,6 +21,7 @@ def permutation_importance(
     metric=weighted_r2,
     random_state: int = 0,
 ) -> pd.DataFrame:
+    # 单列打乱后看分数下降幅度，下降越大说明该特征越关键。
     rng = np.random.default_rng(random_state)
     if sample_weight is None:
         baseline = metric(y, predict_fn(X))
@@ -45,6 +48,7 @@ def permutation_importance(
 
 
 def correlation_table(X: np.ndarray, y: np.ndarray, feature_names: list[str]) -> pd.DataFrame:
+    # 快速查看每个特征与目标的线性相关性。
     rows = []
     for feature_index, feature_name in enumerate(feature_names):
         rows.append({"feature": feature_name, "corr": pearson_corr(X[:, feature_index], y)})
@@ -61,6 +65,7 @@ def feature_recovery_report(
     true_drivers: list[str],
     top_k_size: int = 8,
 ) -> dict[str, Any]:
+    # 把模型重要性和模拟器里的真实驱动特征做对比。
     ranked = aggregated_feature_importance(feature_names, base_coef, interaction_names, interaction_coef)
     recovered = top_k(ranked, top_k_size)
     recovered_names = [name for name, _ in recovered]

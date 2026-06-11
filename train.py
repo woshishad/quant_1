@@ -1,3 +1,5 @@
+"""命令行入口：训练 target 模型、weight 辅助模型并导出分析结果。"""
+
 from __future__ import annotations
 
 import argparse
@@ -16,10 +18,12 @@ from synthetic_competition.models import FeatureInteractionBuilder, FusionRegres
 
 
 def build_feature_frame(frame: pd.DataFrame, feature_names: list[str]) -> np.ndarray:
+    # 把 DataFrame 转成模型可以直接吃的二维数组。
     return frame[feature_names].to_numpy(dtype=float)
 
 
 def time_split(frame: pd.DataFrame, validation_fraction: float) -> tuple[pd.DataFrame, pd.DataFrame]:
+    # 严格按 time_id 排序切分，避免未来信息泄露。
     unique_times = np.sort(frame["time_id"].unique())
     split_index = max(1, int(len(unique_times) * (1.0 - validation_fraction)))
     train_times = unique_times[:split_index]
@@ -34,6 +38,7 @@ def save_model_bundle(bundle: dict[str, Any], path: str | Path) -> Path:
 
 
 def load_or_generate_data(data_dir: Path, config: SyntheticConfig) -> Path:
+    # 如果数据目录没有现成文件，就用当前配置先生成一份。
     manifest_path = data_dir / "manifest.json"
     if manifest_path.exists():
         return manifest_path
@@ -44,6 +49,7 @@ def load_or_generate_data(data_dir: Path, config: SyntheticConfig) -> Path:
 
 
 def train_pipeline(data_dir: Path, artifacts_dir: Path, config: SyntheticConfig) -> dict[str, Any]:
+    # 训练主流程：读取数据、切分、训练、评估、保存结果。
     ensure_dir(artifacts_dir)
     load_or_generate_data(data_dir, config)
 
@@ -74,11 +80,10 @@ def train_pipeline(data_dir: Path, artifacts_dir: Path, config: SyntheticConfig)
     ).fit(X_train, y_train, sample_weight=w_train)
     target_valid_pred = target_model.predict(X_valid)
 
-    base_train_pred = target_model.base_model.predict(X_valid)
     interaction_valid_features, interaction_names = interaction_builder.transform(X_valid)
-    interaction_valid_pred = target_model.interaction_model.predict(interaction_valid_features)
 
     target_metrics = {
+        # 官方最重要的指标是加权 R²。
         "weighted_r2": weighted_r2(y_valid, target_valid_pred, sample_weight=w_valid),
         "r2": r2_score(y_valid, target_valid_pred),
         "baseline_zero_weighted_r2": weighted_r2(y_valid, np.zeros_like(y_valid), sample_weight=w_valid),
@@ -88,6 +93,7 @@ def train_pipeline(data_dir: Path, artifacts_dir: Path, config: SyntheticConfig)
         "r2": r2_score(w_valid, weight_valid_pred),
     }
 
+    # 两张相关性表用于快速看 target / weight 的主要驱动特征。
     feature_corr_target = correlation_table(X_train, y_train, feature_names)
     feature_corr_weight = correlation_table(X_train, w_train, feature_names)
     target_permutation = permutation_importance(
@@ -109,6 +115,7 @@ def train_pipeline(data_dir: Path, artifacts_dir: Path, config: SyntheticConfig)
         random_state=config.seed + 1,
     )
 
+    # 用预设真值检验模型是否真的恢复出了关键特征。
     target_recovery = feature_recovery_report(
         feature_names=feature_names,
         base_coef=target_model.base_model.coef_,
@@ -126,6 +133,7 @@ def train_pipeline(data_dir: Path, artifacts_dir: Path, config: SyntheticConfig)
         top_k_size=8,
     )
 
+    # 模型包只保存推理阶段真正需要的参数。
     bundle = {
         "config": asdict(config),
         "feature_names": feature_names,
@@ -192,6 +200,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    # 默认直接跑完整训练流程。
     args = parse_args()
     config = SyntheticConfig(seed=args.seed)
     summary = train_pipeline(args.data_dir, args.artifacts_dir, config)
