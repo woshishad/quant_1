@@ -1,0 +1,16 @@
+name: quant-competition-sim
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy=1.26
+  - pandas=2.2
+  - pip
+  - jupyterlab
+  - matplotlib
+  - seaborn
+  - scipy=1.13
+  - tqdm
+  - pip:
+      # 用于本地读取赛题 PDF，方便后续继续对照赛制说明。
+      - pypdf

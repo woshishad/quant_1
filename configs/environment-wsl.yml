@@ -1,0 +1,31 @@
+name: quant-competition-wsl
+channels:
+  - conda-forge
+dependencies:
+  # Python 3.12 is required by the CUDA 13.3 XGBoost build used below.
+  - python=3.12
+  - pip
+  - numpy=1.26
+  - pandas=2.2
+  - pyarrow
+  - scipy=1.13
+  - scikit-learn
+  - lightgbm
+  - xgboost=3.4.1=cuda133*
+  # CUDA 13 packages match the WSL driver exposed by the host.
+  - cuda-version=13.0
+  - pytorch=2.13.0=cuda130_mkl_py312*
+  - matplotlib
+  - seaborn
+  - jupyterlab
+  - ipykernel
+  - tqdm
+  - joblib
+  - threadpoolctl
+  - psutil
+  - pyyaml
+  - pip:
+      # The conda CUDA 12.9 CatBoost build conflicts with the CUDA 13 stack.
+      # The official wheel retains CatBoost's GPU task_type=GPU support.
+      - catboost==1.2.10
+      - pypdf

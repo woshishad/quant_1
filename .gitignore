@@ -1,5 +1,49 @@
+# Python caches and local environments
 __pycache__/
-*.pyc
-artifacts/
-data/synthetic/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+.venv/
+venv/
+.conda/
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local data, models, experiment outputs, and generated artifacts
+/data/
+/models/
+/results/
+/artifacts/
+/catboost_info/
 submission.csv
+*.parquet
+*.feather
+*.arrow
+*.npy
+*.npz
+*.pkl
+*.joblib
+*.ckpt
+*.pt
+*.pth
+
+# Large archives and local backups
+*.zip
+*.rar
+*.7z
+*.tar
+*.tar.gz
+*.tgz
+settings.yaml.bak
+
+# Local secrets and runtime files
+.env
+.env.*
+!.env.example
+*.log
